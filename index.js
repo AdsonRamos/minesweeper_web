@@ -31,15 +31,6 @@ const FLAG_TYPES = {
   DOUBT: 2
 }
 
-class Square {
-  constructor({ }) {
-    this.mine = false
-    this.discovered = false
-    this.adjacentMines = 0
-    this.flagType = undefined
-  }
-}
-
 let seconds
 let minutes
 let hours
@@ -49,6 +40,15 @@ let interval
 const appendSeconds = document.getElementById('seconds')
 const appendMinutes = document.getElementById('minutes')
 const appendHours = document.getElementById('hours')
+
+class Square {
+  constructor({ }) {
+    this.mine = false
+    this.discovered = false
+    this.adjacentMines = 0
+    this.flagType = undefined
+  }
+}
 
 const setInitialVariables = () => {
   stopped = false
@@ -111,36 +111,43 @@ const setMines = () => {
   }
 }
 
+const getValidNeighbors = (i, j, length) => {
+  const possibleNeighbors = [
+    { i: i - 1, j: j - 1 },
+    { i: i - 1, j },
+    { i: i - 1, j: j + 1 },
+    { i, j: j - 1 },
+    { i, j: j + 1 },
+    { i: i + 1, j: j - 1 },
+    { i: i + 1, j },
+    { i: i + 1, j: j + 1 },
+  ]
+
+  return possibleNeighbors.filter(neighborh =>
+    neighborh.i >= 0 && neighborh.j >= 0 &&
+    neighborh.i < length && neighborh.j < length)
+}
+
 const setAdjancentMines = () => {
   for (let i = 0; i < mines.length; i++) {
     for (let j = 0; j < mines[i].length; j++) {
       if (!mines[i][j].mine) {
+
+        const validNeighbors = getValidNeighbors(i, j, mines[i].length)
+
         let n = 0
-        if ((i - 1 >= 0) && (j - 1 >= 0) && mines[i - 1][j - 1].mine) {
-          n++
-        }
-        if ((i - 1 >= 0) && mines[i - 1][j].mine) {
-          n++
-        }
-        if ((i - 1 >= 0) && (j + 1 < mines[i].length) && mines[i - 1][j + 1].mine) {
-          n++
-        }
-        if ((j - 1 >= 0) && mines[i][j - 1].mine) {
-          n++
-        }
-        if ((j + 1 < mines[i].length) && mines[i][j + 1].mine) {
-          n++
-        }
-        if ((i + 1 < mines.length) && (j - 1 >= 0) && mines[i + 1][j - 1].mine) {
-          n++
-        }
-        if ((i + 1) < mines.length && mines[i + 1][j].mine) {
-          n++
-        }
-        if ((i + 1 < mines.length) && (j + 1 < mines[i].length) && mines[i + 1][j + 1].mine) {
-          n++
-        }
+        validNeighbors.forEach(neighborh => {
+          if (mines[neighborh.i][neighborh.j].mine) {
+            n++
+          }
+        })
+
         mines[i][j].adjacentMines = n
+
+        squares[i * gridWidth + j].innerHTML = n
+      }
+      else {
+        squares[i * gridWidth + j].innerHTML = '💣'
       }
     }
   }
@@ -164,57 +171,42 @@ const checkMine = (i, j) => {
 }
 
 const floodFill = (i, j) => {
-  if (mines[i][j].discovered || mines[i][j].mine) {
-    return
-  } else {
-    mines[i][j].discovered = true
-    squares[i * gridWidth + j].style.background = "#c8def1"
-    nMinesDiscovered++
-    if (nMinesDiscovered === gridWidth * gridHeight - totalMines) {
-      alert("You won the game!! Press New Game to play again!")
-      stopped = true
-    }
-    if (mines[i][j].adjacentMines != 0) {
-      squares[i * gridWidth + j].innerText = mines[i][j].adjacentMines
-      return
-    }
-  }
-  if ((i - 1 >= 0) && (j - 1 >= 0)) {
-    floodFill(i - 1, j - 1)
-  }
-  if (i - 1 >= 0) {
-    floodFill(i - 1, j)
-  }
-  if ((i - 1 >= 0) && (j + 1 < mines[i].length)) {
-    floodFill(i - 1, j + 1)
-  }
-  if (j - 1 >= 0) {
-    floodFill(i, j - 1)
-  }
-  if (j + 1 < mines[i].length) {
-    floodFill(i, j + 1)
-  }
-  if ((i + 1 < mines.length) && (j - 1 >= 0)) {
-    floodFill(i + 1, j - 1)
-  }
-  if ((i + 1 < mines.length)) {
-    floodFill(i + 1, j)
-  }
-  if ((i + 1 < mines.length) && (j + 1 < mines[i].length)) {
-    floodFill(i + 1, j + 1)
-  }
-  return
-}
+  const cell = mines[i]?.[j];
 
+  if (!cell || cell.discovered || cell.mine) {
+    return;
+  }
+
+  cell.discovered = true;
+  squares[i * gridWidth + j].style.background = "#c8def1";
+  nMinesDiscovered++;
+
+  if (nMinesDiscovered === gridWidth * gridHeight - totalMines) {
+    alert("You won the game!! Press New Game to play again!");
+    stopped = true;
+  }
+
+  if (cell.adjacentMines !== 0) {
+    squares[i * gridWidth + j].innerText = cell.adjacentMines;
+    return;
+  }
+
+  const directions = [-1, 0, 1];
+
+  for (const x of directions) {
+    for (const y of directions) {
+      if (x !== 0 || y !== 0) {
+        floodFill(i + x, j + y);
+      }
+    }
+  }
+};
 
 const blow = () => {
   for (let i = 0; i < mines.length; i++) {
     for (let j = 0; j < mines[i].length; j++) {
       if (mines[i][j].mine) {
-        const bombImg = document.createElement('img')
-        bombImg.src = './src/bomb.png'
-        squares[i * gridWidth + j].innerHTML = ''
-        squares[i * gridWidth + j].appendChild(bombImg)
+        squares[i * gridWidth + j].innerHTML = '💣'
       }
     }
   }
@@ -222,17 +214,12 @@ const blow = () => {
 
 const putFlag = (i, j) => {
   if (!mines[i][j].flagType) {
-    const flagImg = document.createElement('img')
-    flagImg.src = './src/flag_ok.png'
-    squares[i * gridWidth + j].appendChild(flagImg)
+    squares[i * gridWidth + j].innerHTML = '⚑'
     nMines++
     minesCountText.innerText = `${nMines}/${totalMines}`
     mines[i][j].flagType = FLAG_TYPES.OK
   } else if (mines[i][j].flagType === FLAG_TYPES.OK) {
-    const flagDoubtImg = document.createElement('img')
-    flagDoubtImg.src = './src/flag_doubt.png'
-    squares[i * gridWidth + j].innerHTML = ''
-    squares[i * gridWidth + j].appendChild(flagDoubtImg)
+    squares[i * gridWidth + j].innerHTML = '⚐'
     nMines--
     minesCountText.innerText = `${nMines}/${totalMines}`
     mines[i][j].flagType = FLAG_TYPES.DOUBT
